@@ -1,5 +1,3 @@
-package $org.tests;
-
 /**
  * Hello world!
  *
