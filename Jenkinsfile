@@ -6,55 +6,53 @@ pipeline {
         jdk 'JDK-24'
     }
 
-    environment {
-        DOCKER_REGISTRY = ''
-        MAVEN_OPTS = '-Dmaven.repo.local=.m2/repository -Dmaven.test.failure.ignore=true'
-    }
-
-    stages {
-        stage('Checkout') {
-            steps {
-                git branch: 'CI4',
-                    url: 'https://github.com/BrynzaA/BrynzaSelionidTest.git',
-                    credentialsId: ''
-            }
+        environment {
+            MAVEN_OPTS = '-Dmaven.repo.local=.m2/repository -Dmaven.test.failure.ignore=true'
         }
 
-        stage('Build and Run with Docker') {
-            steps {
-                script {
-                    sh 'docker stop selenoid selenoid-ui 2>/dev/null || true'
-                    sh 'docker rm selenoid selenoid-ui 2>/dev/null || true'
+        stages {
+            stage('Cleanup Docker') {
+                steps {
+                    script {
+                        bat 'docker stop selenoid selenoid-ui 2>nul || echo "No containers to stop"'
+                        bat 'docker rm selenoid selenoid-ui 2>nul || echo "No containers to remove"'
+                    }
+                }
+            }
 
-                    bat 'start-all.bat'
+            stage('Build and Run Tests') {
+                steps {
+                    script {
+                        echo 'Запуск тестов через start-all.bat...'
+
+                        bat 'if not exist C:\\selenoid mkdir C:\\selenoid'
+                        bat 'if not exist test-results mkdir test-results'
+                        bat 'if not exist selenoid-videos mkdir selenoid-videos'
+
+                        bat 'copy /Y browsers.json C:\\selenoid\\browsers.json 2>nul || echo "Copy failed"'
+
+                        bat 'start-all.bat'
+                    }
+                }
+            }
+
+            stage('Archive Results') {
+                steps {
+                    archiveArtifacts artifacts: 'test-results/**/*', fingerprint: true
+                    archiveArtifacts artifacts: 'selenoid-videos/**/*', allowEmptyArchive: true
+
+                    junit 'test-results/surefire-reports/*.xml'
                 }
             }
         }
 
-        stage('Archive Reports') {
-            steps {
-                archiveArtifacts artifacts: 'test-results/**/*', fingerprint: true
-                archiveArtifacts artifacts: 'selenoid-videos/**/*', allowEmptyArchive: true
-                junit 'test-results/surefire-reports/*.xml'
-            }
-            post {
-                always {
-                    junit allowEmptyResults: true, testResults: 'test-results/surefire-reports/*.xml'
-                }
-            }
-        }
-    }
+        post {
+            always {
+                bat 'docker stop selenoid selenoid-ui 2>nul || echo "Cleanup done"'
 
-    post {
-        always {
-            sh 'docker stop selenoid selenoid-ui 2>/dev/null || true'
-            echo 'Pipeline execution completed. Cleanup done.'
-        }
-        success {
-            echo 'Все тесты успешно выполнены!'
-        }
-        failure {
-            echo ' В пайплайне произошла ошибка.'
+                echo "Рабочая директория: ${env.WORKSPACE}"
+                echo "Статус: ${currentBuild.currentResult}"
+            }
+            success {
         }
     }
-}
