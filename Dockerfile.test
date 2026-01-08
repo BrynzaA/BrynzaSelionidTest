@@ -1,0 +1,8 @@
+FROM maven:3.8.4-openjdk-11-slim
+WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+COPY testng.xml .
+COPY config.properties .
+RUN mvn dependency:go-offline
+CMD ["mvn", "test", "-Dselenium.host=selenoid", "-Dselenium.port=4444"]

@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  selenoid:
+    image: aerokube/selenoid:latest-release
+    container_name: selenoid
+    ports:
+      - "4444:4444"
+    volumes:
+      - "//var/run/docker.sock:/var/run/docker.sock"
+      - "./selenoid-config:/etc/selenoid"
+      - "./selenoid-videos:/opt/selenoid/video"
+    command:
+      - "-conf"
+      - "/etc/selenoid/browsers.json"
+      - "-limit"
+      - "5"
+      - "-timeout"
+      - "3m"
+
+  selenoid-ui:
+    image: aerokube/selenoid-ui:latest-release
+    container_name: selenoid-ui
+    ports:
+      - "8080:8080"
+    depends_on:
+      - selenoid
+    command: ["--selenoid-uri=http://selenoid:4444"]
+
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: selenium-tests
+    depends_on:
+      - selenoid
+    volumes:
+      - "./test-results:/app/target"
+    environment:
+      - SELENIUM_HOST=selenoid
+      - SELENIUM_PORT=4444
+    command: >
+      sh -c "
+      echo 'Waiting for Selenoid...' &&
+      sleep 10 &&
+      mvn test -Dselenium.host=selenoid -Dselenium.port=4444
+      "
