@@ -1,6 +1,9 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
-<suite name="Test Suite" parallel="false">
-    <test name="Tests">
+<suite name="Docker Test Suite" parallel="false">
+    <parameter name="selenium.host" value="selenoid"/>
+    <parameter name="selenium.port" value="4444"/>
+
+    <test name="Login Tests">
         <classes>
             <class name="org.tests.LoginPageTest"/>
         </classes>

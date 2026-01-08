@@ -2,10 +2,7 @@ package org.tests.pages;
 
 import java.time.Duration;
 import java.util.Set;
-import org.openqa.selenium.Cookie;
-import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
+import org.openqa.selenium.*;
 import org.openqa.selenium.support.FindBy;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
@@ -97,19 +94,47 @@ public class LoginPage extends BasePage {
     }
 
     public LoginPage open() {
-        System.out.println("Opening URL: " + ConfigReader.getLoginUrl());
-        driver.get(ConfigReader.getLoginUrl());
-        waitForPageLoad();
-        System.out.println("Page loaded. Current URL: " + driver.getCurrentUrl());
-        System.out.println("Page title: " + driver.getTitle());
+        try {
+            System.out.println("[DEBUG] Step 1: Opening URL: " + ConfigReader.getLoginUrl());
+            driver.get(ConfigReader.getLoginUrl());
+
+            waitForPageLoad();
+
+            waitForAngular();
+
+            System.out.println("[DEBUG] Current URL: " + driver.getCurrentUrl());
+            System.out.println("[DEBUG] Page title: " + driver.getTitle());
+            System.out.println("[DEBUG] Page source length: " + driver.getPageSource().length());
+
+            takeScreenshot("after_page_load");
+
+        } catch (Exception e) {
+            System.out.println("[ERROR] Error opening page: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return this;
+    }
+
+    protected void waitForAngular() {
+        try {
+            ((JavascriptExecutor) driver).executeAsyncScript(
+                    "var callback = arguments[arguments.length - 1];" +
+                            "if (window.angular) {" +
+                            "  var rootEl = document.querySelector('[ng-app]') || document.querySelector('body');" +
+                            "  angular.element(rootEl).injector().get('$browser').notifyWhenNoOutstandingRequests(callback);" +
+                            "} else {" +
+                            "  callback();" +
+                            "}"
+            );
+        } catch (Exception e) {
+            System.out.println("[INFO] Angular not detected, continuing...");
+        }
 
         try {
-            Thread.sleep(3000);
+            Thread.sleep(2000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-
-        return this;
     }
 
     public void openSuccessLoginPageWithCookie(Set<Cookie> fileCookies) {
@@ -159,6 +184,18 @@ public class LoginPage extends BasePage {
         return (Boolean) js.executeScript(
                 "return document.documentElement.scrollWidth > document.documentElement.clientWidth;"
         );
+    }
+
+    public void checkElementExists(String elementName, LoginPage loginPage) {
+        try {
+            WebElement element = driver.findElement(By.id(elementName));
+            System.out.println("✓ Element '" + elementName + "' FOUND!");
+            System.out.println("  - Displayed: " + element.isDisplayed());
+            System.out.println("  - Enabled: " + element.isEnabled());
+            System.out.println("  - Location: " + element.getLocation());
+        } catch (Exception e) {
+            System.out.println("✗ Element '" + elementName + "' NOT FOUND!");
+        }
     }
 }
 
