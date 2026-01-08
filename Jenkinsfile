@@ -2,42 +2,41 @@ pipeline {
     agent any
 
     stages {
-        stage('Cleanup Docker') {
+        stage('Check Tools') {
             steps {
-                bat 'docker stop selenoid selenoid-ui 2>nul || echo "No containers to stop"'
-                bat 'docker rm selenoid selenoid-ui 2>nul || echo "No containers to remove"'
+                script {
+                    def dockerCheck = bat(script: 'docker --version', returnStdout: true).trim()
+                    echo "Docker version: ${dockerCheck}"
+
+                    def mavenCheck = bat(script: 'mvn --version 2>nul || echo "Maven not found"', returnStdout: true).trim()
+                    echo "Maven check: ${mavenCheck}"
+                }
             }
         }
 
-        stage('Prepare Environment') {
+        stage('Run Full Test Suite') {
             steps {
-                bat 'if not exist C:\\selenoid mkdir C:\\selenoid'
-                bat 'if not exist test-results mkdir test-results'
-                bat 'if not exist selenoid-videos mkdir selenoid-videos'
-                bat 'copy /Y browsers.json C:\\selenoid\\browsers.json 2>nul || echo "Copy failed"'
-            }
-        }
-
-        stage('Run Tests') {
-            steps {
-                bat 'start-all.bat'
-            }
-        }
-
-        stage('Archive Results') {
-            steps {
-                archiveArtifacts artifacts: 'test-results/**/*', fingerprint: true
-                archiveArtifacts artifacts: 'selenoid-videos/**/*', allowEmptyArchive: true
-
-                junit 'test-results/surefire-reports/*.xml'
+                script {
+                    echo 'Запускаем start-all.bat...'
+                    bat 'start-all.bat'
+                }
             }
         }
     }
 
     post {
         always {
-            bat 'docker stop selenoid selenoid-ui 2>nul || echo "Cleanup done"'
-            echo "Build status: ${currentBuild.currentResult}"
+            script {
+                if (fileExists('test-results')) {
+                    archiveArtifacts artifacts: 'test-results/**/*', fingerprint: true
+                    junit 'test-results/surefire-reports/*.xml'
+                }
+                if (fileExists('selenoid-videos')) {
+                    archiveArtifacts artifacts: 'selenoid-videos/**/*', allowEmptyArchive: true
+                }
+            }
+
+            bat 'docker stop selenoid selenoid-ui 2>nul || echo "No containers to clean"'
         }
     }
 }
